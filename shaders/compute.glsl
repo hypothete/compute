@@ -16,11 +16,13 @@ uniform vec3 ray11;
 struct box {
   vec3 min;
   vec3 max;
+  int color;
 };
 
 struct sphere {
   vec3 center;
   float radius;
+  int color;
 };
 
 struct hitinfo {
@@ -35,21 +37,24 @@ struct ray {
 
 const box boxes[] = {
   /* The ground */
-  {vec3(-5.0, -0.1, -5.0), vec3(5.0, 0.0, 5.0)},
+  {vec3(-5.0, -1.0, -5.0), vec3(5.0, -0.75, 5.0), 0},
   /* Box in the middle */
-  {vec3(-0.5, 0.0, -0.5), vec3(0.5, 1.0, 0.5)}
+  {vec3(-0.5, -0.75, -0.5), vec3(0.5, 0.25, 0.5), 1}
 };
 
 const sphere spheres[] = {
-  {vec3(-2.0, 0.0, 0.0), 0.5},
-  {vec3(2.0, 0.0, 2.0), 0.25},
-  {vec3(1.0, 0.0, -0.5), 0.75}
+  {vec3(-1.5, -0.25, -1.0), 0.5, 2},
+  {vec3(1.0, 0.0, 2.0), 0.25, 3},
+  {vec3(1.25, 0.0, 0.0), 0.75, 4}
 };
 
 const vec3 colors[] = {
-  vec3(1.0, 0.0, 0.0),
+  vec3(0.7, 0.7, 0.7),
   vec3(0.0, 1.0, 0.0),
-  vec3(0.0, 0.0, 1.0)
+  vec3(0.0, 0.0, 1.0),
+  vec3(1.0, 0.0, 1.0),
+  vec3(1.0, 1.0, 0.0),
+  vec3(0.0, 1.0, 1.0)
 };
 
 vec2 intersectBox(ray r, const box b) {
@@ -63,13 +68,13 @@ vec2 intersectBox(ray r, const box b) {
 }
 
 bool intersectBoxes(ray r, out hitinfo info) {
-  float smallest = MAX_SCENE_BOUNDS;
+  float smallest = info.lambda.x;
   bool found = false;
   for (int i = 0; i < NUM_BOXES; i++) {
     vec2 lambda = intersectBox(r, boxes[i]);
     if (lambda.x > 0.0 && lambda.x < lambda.y && lambda.x < smallest) {
       info.lambda = lambda;
-      info.index = i;
+      info.index = boxes[i].color;
       smallest = lambda.x;
       found = true;
     }
@@ -80,34 +85,33 @@ bool intersectBoxes(ray r, out hitinfo info) {
 vec2 intersectSphere(ray r, const sphere s) {
   vec3 oc = r.origin - s.center;
   float a = dot(r.dir, r.dir);
-  float b = 2.0 * dot(oc, r.dir);
+  float b = dot(oc, r.dir);
   float c = dot(oc, oc) - s.radius * s.radius;
-  float h = b*b - 4.0 * a * c;
-  return vec2(-b-h, -b+h);
+  float h = b*b - a * c;
+  return vec2((-b - sqrt(h)) / a, (-b + sqrt(h)) / a); // get intersect pts
 }
 
 bool intersectSpheres(ray r, out hitinfo info) {
   bool found = false;
-  float smallest = MAX_SCENE_BOUNDS;
+  float smallest = info.lambda.x;
   for (int i = 0; i < NUM_SPHERES; i++) {
     vec2 lambda = intersectSphere(r, spheres[i]);
     if (lambda.x > 0.0 && lambda.x < lambda.y && lambda.x < smallest) {
       found = true;
+      smallest = lambda.x; // sort for depth
       info.lambda = lambda;
-      info.index = i;
+      info.index = spheres[i].color;
     }
   }
   return found;
 }
 
-
 vec4 trace(ray r) {
   hitinfo i;
-  // if (intersectBoxes(r, i)) {
-  //   vec4 gray = vec4(i.index / 10.0 + 0.8);
-  //   return vec4(gray.rgb, 1.0);
-  // }
-  if (intersectSpheres(r, i)) {
+  i.lambda = vec2(MAX_SCENE_BOUNDS);
+  intersectBoxes(r, i);
+  intersectSpheres(r, i);
+  if (i.lambda.x < MAX_SCENE_BOUNDS) {
     return vec4(colors[i.index], 1.0);
   }
   return vec4(0.0, 0.0, 0.0, 1.0);
