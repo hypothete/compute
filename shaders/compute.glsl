@@ -77,23 +77,23 @@ bool intersectBoxes(ray r, out hitinfo info) {
   return found;
 }
 
-bool intersectSphere(ray r, const sphere s) {
+vec2 intersectSphere(ray r, const sphere s) {
   vec3 oc = r.origin - s.center;
   float a = dot(r.dir, r.dir);
   float b = 2.0 * dot(oc, r.dir);
   float c = dot(oc, oc) - s.radius * s.radius;
-  float discriminant = b*b - 4.0 * a * c;
-  return discriminant > 0.0;
+  float h = b*b - 4.0 * a * c;
+  return vec2(-b-h, -b+h);
 }
 
 bool intersectSpheres(ray r, out hitinfo info) {
   bool found = false;
   float smallest = MAX_SCENE_BOUNDS;
   for (int i = 0; i < NUM_SPHERES; i++) {
-    bool hitSphere = intersectSphere(r, spheres[i]);
-    if (hitSphere) {
+    vec2 lambda = intersectSphere(r, spheres[i]);
+    if (lambda.x > 0.0 && lambda.x < lambda.y && lambda.x < smallest) {
       found = true;
-      info.lambda = vec2(0.0);
+      info.lambda = lambda;
       info.index = i;
     }
   }
