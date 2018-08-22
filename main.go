@@ -11,8 +11,10 @@ import (
 )
 
 const (
-	windowWidth  = 512
+	windowWidth  = 1024
 	windowHeight = 512
+	widthUnits   = 16
+	heightUnits  = 8
 )
 
 var (
@@ -167,7 +169,7 @@ func draw(
 	gl.Uniform3f(vec11Uniform, cam.Vec11[0], cam.Vec11[1], cam.Vec11[2])
 
 	gl.BindImageTexture(0, tex, 0, false, 0, gl.WRITE_ONLY, gl.RGBA32F)
-	gl.DispatchCompute(windowWidth/8, windowHeight/8, 1)
+	gl.DispatchCompute(windowWidth/widthUnits, windowHeight/heightUnits, 1)
 	gl.BindImageTexture(0, 0, 0, false, 0, gl.WRITE_ONLY, gl.RGBA32F)
 	gl.MemoryBarrier(gl.SHADER_IMAGE_ACCESS_BARRIER_BIT)
 
@@ -220,7 +222,7 @@ func main() {
 		mgl32.Vec3{0, 0.5, 0},
 		mgl32.Vec3{0, 1, 0},
 		mgl32.DegToRad(60),
-		1.0,
+		windowWidth/windowHeight,
 		0.1,
 		100.0)
 
