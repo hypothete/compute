@@ -5,6 +5,7 @@ layout (local_size_x = 16, local_size_y = 8) in;
 #define MAX_SCENE_BOUNDS 100.0
 #define NUM_BOXES 2
 #define NUM_SPHERES 3
+#define EPSILON 0.0001
 
 // The camera specification
 uniform vec3 camPos;
@@ -28,6 +29,7 @@ struct sphere {
 struct hitinfo {
   vec2 lambda;
   int index;
+  vec3 normal;
 };
 
 struct ray {
@@ -57,6 +59,10 @@ const vec3 colors[] = {
   vec3(0.0, 1.0, 1.0)
 };
 
+vec3 pointAt(ray r, float t) {
+  return r.origin + r.dir * t;
+}
+
 vec2 intersectBox(ray r, const box b) {
   vec3 tMin = (b.min - r.origin) / r.dir;
   vec3 tMax = (b.max - r.origin) / r.dir;
@@ -77,6 +83,25 @@ bool intersectBoxes(ray r, out hitinfo info) {
       info.index = boxes[i].color;
       smallest = lambda.x;
       found = true;
+      vec3 pt1 = pointAt(r, lambda.x);
+      if (abs(pt1.x - boxes[i].max.x) < EPSILON) {
+        info.normal = vec3(1.0, 0.0, 0.0);
+      }
+      else if (abs(pt1.x - boxes[i].min.x) < EPSILON) {
+        info.normal = vec3(-1.0, 0.0, 0.0);
+      }
+      else if (abs(pt1.y - boxes[i].max.y) < EPSILON) {
+        info.normal = vec3(0.0, 1.0, 0.0);
+      }
+      else if (abs(pt1.y - boxes[i].min.y) < EPSILON) {
+        info.normal = vec3(0.0, -1.0, 0.0);
+      }
+      else if (abs(pt1.z - boxes[i].max.z) < EPSILON) {
+        info.normal = vec3(0.0, 0.0, 1.0);
+      }
+      else if (abs(pt1.z - boxes[i].min.z) < EPSILON) {
+        info.normal = vec3(0.0, 0.0, -1.0);
+      }
     }
   }
   return found;
@@ -101,6 +126,8 @@ bool intersectSpheres(ray r, out hitinfo info) {
       smallest = lambda.x; // sort for depth
       info.lambda = lambda;
       info.index = spheres[i].color;
+      vec3 pt1 = pointAt(r, lambda.x);
+      info.normal = normalize(pt1 - spheres[i].center);
     }
   }
   return found;
@@ -112,7 +139,7 @@ vec4 trace(ray r) {
   intersectBoxes(r, i);
   intersectSpheres(r, i);
   if (i.lambda.x < MAX_SCENE_BOUNDS) {
-    return vec4(colors[i.index], 1.0);
+    return vec4(i.normal, 1.0);
   }
   return vec4(0.0, 0.0, 0.0, 1.0);
 }
