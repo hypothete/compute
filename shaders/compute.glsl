@@ -35,7 +35,6 @@ struct hitinfo {
 struct ray {
   vec3 origin;
   vec3 dir;
-  int bounces;
 };
 
 const box boxes[] = {
@@ -67,10 +66,11 @@ float rand(vec2 co) {
 vec3 randomOnUnitSphere(vec2 q) {
   vec3 p;
 
-  float x = rand(q /3);
-  float y = rand(q /5);
-  float z = rand(q /9);
+  float x = rand(q / 3.0);
+  float y = rand(q * 5.0);
+  float z = rand(q + 9.0);
   p = 2.0 * vec3(x,y,z) - 1.0;
+
   return p;
 }
 
@@ -149,25 +149,23 @@ bool intersectSpheres(ray r, out hitinfo info) {
 }
 
 vec3 trace(ray r) {
-  hitinfo i;
-  i.lambda = vec2(MAX_SCENE_BOUNDS);
-  intersectBoxes(r, i);
-  intersectSpheres(r, i);
-  if (i.lambda.x < MAX_SCENE_BOUNDS) {
-    vec3 hit = r.origin + r.dir*i.lambda.x;
-    // if (r.bounces > 0) {
-    //   vec3 target = hit + i.normal + randomOnUnitSphere(hit.xz);
-    //   ray nr;
-    //   nr.bounces = r.bounces - 1;
-    //   nr.origin = hit;
-    //   nr.dir = target - hit;
-    //   return 0.5 * trace(nr);
-    // }
-    vec3 lightPos = vec3(0.5, 10.0, 2.0);
-    vec3 lightDir = normalize(lightPos - hit);
-    return colors[i.index] * max(0.0, dot(i.normal, lightDir));
+  hitinfo info;
+  info.lambda = vec2(MAX_SCENE_BOUNDS);
+  vec3 accumColor = vec3(0.0);
+  for (int i=8; i>0; i--) {
+    intersectBoxes(r, info);
+    intersectSpheres(r, info);
+    if (info.lambda.x >= MAX_SCENE_BOUNDS) {
+      break;
+    }
+    vec3 hit = r.origin + r.dir*info.lambda.x;
+    vec3 target = hit + info.normal + randomOnUnitSphere(hit.xy);
+    vec3 hitColor = (colors[info.index] / 8.0)  * max(0.0, dot(r.dir, info.normal));
+    r.origin = hit;
+    r.dir = normalize(target - hit);
+    accumColor += hitColor;
   }
-  return vec3(0.0);
+  return accumColor;
 }
 
 void main(void) {
@@ -178,14 +176,13 @@ void main(void) {
   }
 
   vec3 color;
-  for (int i=0; i<16; i++) { // MSAA
+  for (int i=0; i<32; i++) { // MSAA
     vec2 jitter = vec2(rand(vec2(pix.x, pix.y + i)), rand(vec2(pix.y + i, pix.x)));
     vec2 uv = (vec2(pix) + jitter) / vec2(size.x, size.y);
     ray r;
-    r.bounces = 3;
     r.origin = camPos;
     r.dir = mix(mix(ray00.xyz, ray01.xyz, uv.y), mix(ray10.xyz, ray11.xyz, uv.y), uv.x);
-    color += (trace(r) / 16.0);
+    color += (trace(r) / 32.0);
   }
   imageStore(framebuffer, pix, vec4(color, 1.0));
 }

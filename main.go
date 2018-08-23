@@ -144,14 +144,17 @@ func draw(
 
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-	mx, my := window.GetCursorPos()
-	cx := (windowWidth/2 - mx) / windowWidth
-	cy := (my - windowHeight/2) / windowHeight
-	newCamPos := mgl32.Vec3{float32(cx), float32(cy), 1}
-	newCamPos = newCamPos.Normalize()
-	newCamPos = newCamPos.Mul(5)
-	cam.Position = newCamPos
-	cam.UpdateMatrices()
+	mouseState := window.GetMouseButton(glfw.MouseButtonLeft)
+	if mouseState == glfw.Press {
+		mx, my := window.GetCursorPos()
+		cx := (windowWidth/2 - mx) / windowWidth
+		cy := (my - windowHeight/2) / windowHeight
+		newCamPos := mgl32.Vec3{float32(cx), float32(cy), 1}
+		newCamPos = newCamPos.Normalize()
+		newCamPos = newCamPos.Mul(5)
+		cam.Position = newCamPos
+		cam.UpdateMatrices()
+	}
 
 	gl.UseProgram(computeProg.ID)
 
