@@ -35,6 +35,7 @@ struct hitinfo {
 struct ray {
   vec3 origin;
   vec3 dir;
+  int bounces;
 };
 
 const box boxes[] = {
@@ -58,6 +59,20 @@ const vec3 colors[] = {
   vec3(1.0, 1.0, 0.0),
   vec3(0.0, 1.0, 1.0)
 };
+
+float rand(vec2 co) {
+  return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+}
+
+vec3 randomOnUnitSphere(vec2 q) {
+  vec3 p;
+
+  float x = rand(q /3);
+  float y = rand(q /5);
+  float z = rand(q /9);
+  p = 2.0 * vec3(x,y,z) - 1.0;
+  return p;
+}
 
 vec3 pointAt(ray r, float t) {
   return r.origin + r.dir * t;
@@ -133,15 +148,26 @@ bool intersectSpheres(ray r, out hitinfo info) {
   return found;
 }
 
-vec4 trace(ray r) {
+vec3 trace(ray r) {
   hitinfo i;
   i.lambda = vec2(MAX_SCENE_BOUNDS);
   intersectBoxes(r, i);
   intersectSpheres(r, i);
   if (i.lambda.x < MAX_SCENE_BOUNDS) {
-    return vec4(i.normal, 1.0);
+    vec3 hit = r.origin + r.dir*i.lambda.x;
+    // if (r.bounces > 0) {
+    //   vec3 target = hit + i.normal + randomOnUnitSphere(hit.xz);
+    //   ray nr;
+    //   nr.bounces = r.bounces - 1;
+    //   nr.origin = hit;
+    //   nr.dir = target - hit;
+    //   return 0.5 * trace(nr);
+    // }
+    vec3 lightPos = vec3(0.5, 10.0, 2.0);
+    vec3 lightDir = normalize(lightPos - hit);
+    return colors[i.index] * max(0.0, dot(i.normal, lightDir));
   }
-  return vec4(0.0, 0.0, 0.0, 1.0);
+  return vec3(0.0);
 }
 
 void main(void) {
@@ -151,10 +177,15 @@ void main(void) {
     return;
   }
 
-  vec2 screen = vec2(pix) / vec2(size.x, size.y);
-  ray r;
-  r.origin = camPos;
-  r.dir = mix(mix(ray00.xyz, ray01.xyz, screen.y), mix(ray10.xyz, ray11.xyz, screen.y), screen.x);
-  vec4 color = trace(r);
-  imageStore(framebuffer, pix, color);
+  vec3 color;
+  for (int i=0; i<16; i++) { // MSAA
+    vec2 jitter = vec2(rand(vec2(pix.x, pix.y + i)), rand(vec2(pix.y + i, pix.x)));
+    vec2 uv = (vec2(pix) + jitter) / vec2(size.x, size.y);
+    ray r;
+    r.bounces = 3;
+    r.origin = camPos;
+    r.dir = mix(mix(ray00.xyz, ray01.xyz, uv.y), mix(ray10.xyz, ray11.xyz, uv.y), uv.x);
+    color += (trace(r) / 16.0);
+  }
+  imageStore(framebuffer, pix, vec4(color, 1.0));
 }
