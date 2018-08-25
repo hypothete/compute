@@ -20,13 +20,18 @@ uniform sampler2D tex;
 struct box {
   vec3 min;
   vec3 max;
-  int color;
+  int material;
 };
 
 struct sphere {
   vec3 center;
   float radius;
-  int color;
+  int material;
+};
+
+struct triangle {
+  vec3 a, b, c;
+  int material;
 };
 
 struct hitinfo {
@@ -106,7 +111,7 @@ bool intersectBoxes(ray r, out hitinfo info) {
     vec2 lambda = intersectBox(r, boxes[i]);
     if (lambda.x > 0.0 && lambda.x < lambda.y && lambda.x < smallest) {
       info.lambda = lambda;
-      info.index = boxes[i].color;
+      info.index = boxes[i].material;
       smallest = lambda.x;
       found = true;
       vec3 pt1 = pointAt(r, lambda.x);
@@ -151,7 +156,7 @@ bool intersectSpheres(ray r, out hitinfo info) {
       found = true;
       smallest = lambda.x; // sort for depth
       info.lambda = lambda;
-      info.index = spheres[i].color;
+      info.index = spheres[i].material;
       vec3 pt1 = pointAt(r, lambda.x);
       info.normal = normalize(pt1 - spheres[i].center);
     }
