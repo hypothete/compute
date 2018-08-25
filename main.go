@@ -35,9 +35,10 @@ var (
 
 // Camera is used to view the scene
 type Camera struct {
-	Projection, View, InvViewProd                    mgl32.Mat4
-	Position, Target, Up, Vec00, Vec01, Vec10, Vec11 mgl32.Vec3
-	Fovy, Aspect, Near, Far                          float32
+	Projection, View, InvViewProd                                      mgl32.Mat4
+	Position, Target, Up, Vec00, Vec01, Vec10, Vec11                   mgl32.Vec3
+	Fovy, Aspect, Near, Far                                            float32
+	PosUniform, Vec00Uniform, Vec01Uniform, Vec10Uniform, Vec11Uniform int32
 }
 
 // UpdateMatrices reads values form the camera and preps the matrices
@@ -70,6 +71,22 @@ func (c *Camera) UpdateMatrices() {
 	c.Vec01 = vec01.Vec3()
 	c.Vec10 = vec10.Vec3()
 	c.Vec11 = vec11.Vec3()
+}
+
+func (c *Camera) assignUniformLocations(progID uint32) {
+	c.PosUniform = gl.GetUniformLocation(progID, gStr("camPos"))
+	c.Vec00Uniform = gl.GetUniformLocation(progID, gStr("ray00"))
+	c.Vec01Uniform = gl.GetUniformLocation(progID, gStr("ray01"))
+	c.Vec10Uniform = gl.GetUniformLocation(progID, gStr("ray10"))
+	c.Vec11Uniform = gl.GetUniformLocation(progID, gStr("ray11"))
+}
+
+func (c *Camera) setUniforms() {
+	gl.Uniform3f(c.PosUniform, c.Position[0], c.Position[1], c.Position[2])
+	gl.Uniform3f(c.Vec00Uniform, c.Vec00[0], c.Vec00[1], c.Vec00[2])
+	gl.Uniform3f(c.Vec01Uniform, c.Vec01[0], c.Vec01[1], c.Vec01[2])
+	gl.Uniform3f(c.Vec10Uniform, c.Vec10[0], c.Vec10[1], c.Vec10[2])
+	gl.Uniform3f(c.Vec11Uniform, c.Vec11[0], c.Vec11[1], c.Vec11[2])
 }
 
 // NewCamera is a camera constructor
@@ -142,12 +159,12 @@ func makeOutputTexture(renderedTexture uint32) uint32 {
 func takeScreenshot() {
 	pixels := image.NewRGBA(image.Rect(0, 0, windowWidth, windowHeight))
 	gl.ReadPixels(0, 0, windowWidth, windowHeight, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(pixels.Pix))
-	new_image := imaging.FlipV(pixels)
+	newImage := imaging.FlipV(pixels)
 	output, err := os.Create("screenshot.png")
 	if err != nil {
 		log.Fatal(err)
 	}
-	png.Encode(output, new_image)
+	png.Encode(output, newImage)
 	output.Close()
 }
 
@@ -178,18 +195,7 @@ func draw(
 		cam.UpdateMatrices()
 		*count = float32(1.0)
 
-		camPosUniform := gl.GetUniformLocation(computeProg.ID, gStr("camPos"))
-		vec00Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray00"))
-		vec01Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray01"))
-		vec10Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray10"))
-		vec11Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray11"))
-
-		gl.Uniform3f(camPosUniform, cam.Position[0], cam.Position[1], cam.Position[2])
-
-		gl.Uniform3f(vec00Uniform, cam.Vec00[0], cam.Vec00[1], cam.Vec00[2])
-		gl.Uniform3f(vec01Uniform, cam.Vec01[0], cam.Vec01[1], cam.Vec01[2])
-		gl.Uniform3f(vec10Uniform, cam.Vec10[0], cam.Vec10[1], cam.Vec10[2])
-		gl.Uniform3f(vec11Uniform, cam.Vec11[0], cam.Vec11[1], cam.Vec11[2])
+		cam.setUniforms()
 	}
 
 	gl.BindTexture(gl.TEXTURE_2D, *tex)
@@ -265,20 +271,10 @@ func main() {
 	var count float32
 
 	gl.UseProgram(computeProg.ID)
-	camPosUniform := gl.GetUniformLocation(computeProg.ID, gStr("camPos"))
-	vec00Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray00"))
-	vec01Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray01"))
-	vec10Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray10"))
-	vec11Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray11"))
+	cam.assignUniformLocations(computeProg.ID)
+	cam.setUniforms()
+
 	countUniform := gl.GetUniformLocation(computeProg.ID, gStr("count"))
-
-	gl.Uniform3f(camPosUniform, cam.Position[0], cam.Position[1], cam.Position[2])
-
-	gl.Uniform3f(vec00Uniform, cam.Vec00[0], cam.Vec00[1], cam.Vec00[2])
-	gl.Uniform3f(vec01Uniform, cam.Vec01[0], cam.Vec01[1], cam.Vec01[2])
-	gl.Uniform3f(vec10Uniform, cam.Vec10[0], cam.Vec10[1], cam.Vec10[2])
-	gl.Uniform3f(vec11Uniform, cam.Vec11[0], cam.Vec11[1], cam.Vec11[2])
-
 	gl.Uniform1f(countUniform, count)
 
 	comptexUniform := gl.GetUniformLocation(computeProg.ID, gStr("tex"))
