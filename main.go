@@ -135,14 +135,19 @@ func makeOutputTexture(renderedTexture uint32) uint32 {
 }
 
 func draw(
-	vao uint32,
+	vao *uint32,
 	window *glfw.Window,
-	computeProg shaderutils.ShaderProgram,
-	quadProg shaderutils.ShaderProgram,
-	tex uint32,
-	cam Camera) {
+	computeProg *shaderutils.ShaderProgram,
+	quadProg *shaderutils.ShaderProgram,
+	tex *uint32,
+	cam *Camera,
+	count *float32) {
 
 	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+
+	*count++
+
+	gl.UseProgram(computeProg.ID)
 
 	mouseState := window.GetMouseButton(glfw.MouseButtonLeft)
 	if mouseState == glfw.Press {
@@ -151,35 +156,40 @@ func draw(
 		cy := (my - windowHeight/2) / windowHeight
 		newCamPos := mgl32.Vec3{float32(cx), float32(cy), 1}
 		newCamPos = newCamPos.Normalize()
-		newCamPos = newCamPos.Mul(5)
+		newCamPos = newCamPos.Mul(3)
 		cam.Position = newCamPos
 		cam.UpdateMatrices()
+		*count = float32(1.0)
+
+		camPosUniform := gl.GetUniformLocation(computeProg.ID, gStr("camPos"))
+		vec00Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray00"))
+		vec01Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray01"))
+		vec10Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray10"))
+		vec11Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray11"))
+
+		gl.Uniform3f(camPosUniform, cam.Position[0], cam.Position[1], cam.Position[2])
+
+		gl.Uniform3f(vec00Uniform, cam.Vec00[0], cam.Vec00[1], cam.Vec00[2])
+		gl.Uniform3f(vec01Uniform, cam.Vec01[0], cam.Vec01[1], cam.Vec01[2])
+		gl.Uniform3f(vec10Uniform, cam.Vec10[0], cam.Vec10[1], cam.Vec10[2])
+		gl.Uniform3f(vec11Uniform, cam.Vec11[0], cam.Vec11[1], cam.Vec11[2])
 	}
 
-	gl.UseProgram(computeProg.ID)
+	gl.BindTexture(gl.TEXTURE_2D, *tex)
 
-	camPosUniform := gl.GetUniformLocation(computeProg.ID, gStr("camPos"))
-	vec00Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray00"))
-	vec01Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray01"))
-	vec10Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray10"))
-	vec11Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray11"))
+	countUniform := gl.GetUniformLocation(computeProg.ID, gStr("count"))
 
-	gl.Uniform3f(camPosUniform, cam.Position[0], cam.Position[1], cam.Position[2])
+	gl.Uniform1f(countUniform, *count)
 
-	gl.Uniform3f(vec00Uniform, cam.Vec00[0], cam.Vec00[1], cam.Vec00[2])
-	gl.Uniform3f(vec01Uniform, cam.Vec01[0], cam.Vec01[1], cam.Vec01[2])
-	gl.Uniform3f(vec10Uniform, cam.Vec10[0], cam.Vec10[1], cam.Vec10[2])
-	gl.Uniform3f(vec11Uniform, cam.Vec11[0], cam.Vec11[1], cam.Vec11[2])
-
-	gl.BindImageTexture(0, tex, 0, false, 0, gl.WRITE_ONLY, gl.RGBA32F)
+	gl.BindImageTexture(0, *tex, 0, false, 0, gl.WRITE_ONLY, gl.RGBA32F)
 	gl.DispatchCompute(windowWidth/widthUnits, windowHeight/heightUnits, 1)
 	gl.BindImageTexture(0, 0, 0, false, 0, gl.WRITE_ONLY, gl.RGBA32F)
 	gl.MemoryBarrier(gl.SHADER_IMAGE_ACCESS_BARRIER_BIT)
-
+	gl.BindTexture(gl.TEXTURE_2D, 0)
 	gl.UseProgram(quadProg.ID)
 
-	gl.BindVertexArray(vao)
-	gl.BindTexture(gl.TEXTURE_2D, tex)
+	gl.BindVertexArray(*vao)
+	gl.BindTexture(gl.TEXTURE_2D, *tex)
 	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(quad)/3))
 	gl.BindTexture(gl.TEXTURE_2D, 0)
 	gl.UseProgram(0)
@@ -221,15 +231,17 @@ func main() {
 	outTex := makeOutputTexture(42)
 
 	cam := NewCamera(
-		mgl32.Vec3{3, 2, 7},
-		mgl32.Vec3{0, 0.5, 0},
+		mgl32.Vec3{0, 0, 3},
+		mgl32.Vec3{0, 0, 0},
 		mgl32.Vec3{0, 1, 0},
-		mgl32.DegToRad(60),
+		mgl32.DegToRad(45),
 		windowWidth/windowHeight,
 		0.1,
 		100.0)
 
 	vao := makeVao(quad)
+
+	var count float32 = 0
 
 	gl.UseProgram(computeProg.ID)
 	camPosUniform := gl.GetUniformLocation(computeProg.ID, gStr("camPos"))
@@ -237,6 +249,7 @@ func main() {
 	vec01Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray01"))
 	vec10Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray10"))
 	vec11Uniform := gl.GetUniformLocation(computeProg.ID, gStr("ray11"))
+	countUniform := gl.GetUniformLocation(computeProg.ID, gStr("count"))
 
 	gl.Uniform3f(camPosUniform, cam.Position[0], cam.Position[1], cam.Position[2])
 
@@ -245,6 +258,11 @@ func main() {
 	gl.Uniform3f(vec10Uniform, cam.Vec10[0], cam.Vec10[1], cam.Vec10[2])
 	gl.Uniform3f(vec11Uniform, cam.Vec11[0], cam.Vec11[1], cam.Vec11[2])
 
+	gl.Uniform1f(countUniform, count)
+
+	comptexUniform := gl.GetUniformLocation(computeProg.ID, gStr("tex"))
+	gl.Uniform1i(comptexUniform, 0)
+
 	gl.UseProgram(quadProg.ID)
 	texUniform := gl.GetUniformLocation(quadProg.ID, gStr("tex"))
 	gl.Uniform1i(texUniform, 0)
@@ -252,6 +270,6 @@ func main() {
 	gl.UseProgram(0)
 
 	for !window.ShouldClose() {
-		draw(vao, window, computeProg, quadProg, outTex, cam)
+		draw(&vao, window, &computeProg, &quadProg, &outTex, &cam, &count)
 	}
 }
