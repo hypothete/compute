@@ -193,9 +193,8 @@ func draw(
 		newCamPos = newCamPos.Mul(3)
 		cam.Position = newCamPos
 		cam.UpdateMatrices()
-		*count = float32(1.0)
-
 		cam.setUniforms()
+		*count = float32(1.0)
 	}
 
 	gl.BindTexture(gl.TEXTURE_2D, *tex)
