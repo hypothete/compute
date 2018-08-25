@@ -234,7 +234,7 @@ func main() {
 		mgl32.Vec3{0, 0, 3},
 		mgl32.Vec3{0, 0, 0},
 		mgl32.Vec3{0, 1, 0},
-		mgl32.DegToRad(45),
+		mgl32.DegToRad(60),
 		windowWidth/windowHeight,
 		0.1,
 		100.0)

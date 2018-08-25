@@ -6,3 +6,5 @@ This is just a test for me to learn compute shaders. Here's what I'm working off
 * https://github.com/go-gl/example/blob/master/gl41core-cube/cube.go
 * https://godoc.org/github.com/go-gl/mathgl/mgl32
 * https://kylewbanks.com/blog/tutorial-opengl-with-golang-part-1-hello-opengl
+* https://www.shadertoy.com/view/MdfGW8
+* Peter Shirley's Ray Tracing in One Weekend

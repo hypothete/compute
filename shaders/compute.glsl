@@ -6,6 +6,7 @@ layout (local_size_x = 16, local_size_y = 8) in;
 #define NUM_BOXES 2
 #define NUM_SPHERES 3
 #define EPSILON 0.0001
+#define EXPOSURE 16.0
 
 // The camera specification
 uniform vec3 camPos;
@@ -40,30 +41,30 @@ struct ray {
 };
 
 struct material {
-  vec3 color;
-  bool metal;
+  vec3 diffuse;
+  float specular;
+  vec3 emissive;
 };
 
 const box boxes[] = {
   /* The ground */
   {vec3(-5.0, -1.0, -5.0), vec3(5.0, -0.75, 5.0), 0},
   /* Box in the middle */
-  {vec3(-0.5, -0.75, -0.5), vec3(0.5, 0.25, 0.5), 1}
+  {vec3(-1.0, -0.75, -0.5), vec3(0.0, 0.25, 0.5), 1}
 };
 
 const sphere spheres[] = {
-  {vec3(-1.0, -0.25, -1.0), 0.5, 2}, // blue
-  {vec3(1.0, 1.0, -1.0), 0.25, 3}, // pink
+  {vec3(0.0, 3.0, 0.0), 1.0, 2}, // light
+  {vec3(0.0, 1.0, -1.0), 0.25, 3}, // pink
   {vec3(1.25, 0.0, -0.25), 0.75, 4} // yellow
 };
 
 const material materials[] = {
-  { vec3(0.7, 0.7, 0.7), false },
-  { vec3(0.0, 1.0, 0.0), false },
-  { vec3(0.0, 0.0, 1.0), false },
-  { vec3(1.0, 0.0, 1.0), true },
-  { vec3(1.0, 1.0, 0.0), false },
-  { vec3(0.0, 1.0, 1.0), false }
+  { vec3(0.7, 0.7, 0.9), 0.0, vec3(0.0, 0.0, 0.0) },
+  { vec3(0.0, 1.0, 0.0), 0.0, vec3(0.0, 0.0, 0.0) },
+  { vec3(1.0, 0.9, 0.8), 0.0, vec3(1.0, 0.9, 0.8) },
+  { vec3(1.0, 0.0, 1.0), 0.0, vec3(0.0, 0.0, 0.0) },
+  { vec3(1.0, 1.0, 0.2), 1.0, vec3(0.0, 0.0, 0.0) }
 };
 
 float rand(vec2 co) {
@@ -73,9 +74,12 @@ float rand(vec2 co) {
 vec3 randomOnUnitSphere(vec2 q) {
   vec3 p;
 
-  float x = rand(q / 3.0);
-  float y = rand(q * 5.0);
-  float z = rand(q + 9.0);
+  float x = rand(q * vec2(-1.0, 7.0));
+  float y = rand(q * vec2(9.0, 3.0));
+  float z = rand(q * vec2(-22.0, 4.0));
+  x = x / cos(x);
+  y = y / cos(y);
+  z = z / cos(z);
   p = 2.0 * vec3(x,y,z) - 1.0;
   p = normalize(p);
   return p;
@@ -156,35 +160,34 @@ bool intersectSpheres(ray r, out hitinfo info) {
 }
 
 vec3 trace(ray r) {
-  hitinfo info;
-  info.lambda = vec2(MAX_SCENE_BOUNDS);
-  vec3 accumColor = vec3(0.0);
+  
+  vec3 sumColor = vec3(0.0);
+  vec3 kColor = vec3(1.0);
   for (int i=8; i>0; i--) {
+    hitinfo info;
+    
+    info.lambda = vec2(MAX_SCENE_BOUNDS);
     intersectBoxes(r, info);
     intersectSpheres(r, info);
-    if ( info.lambda.x >= MAX_SCENE_BOUNDS) {
-      accumColor  = vec3(0.8);
+    if (info.lambda.x >= MAX_SCENE_BOUNDS) {
       break;
     }
     vec3 hit = r.origin + r.dir*info.lambda.x;
-    vec3 target;
-    material mat = materials[info.index];
-    if (mat.metal) {
-      target = hit + reflect(r.dir, info.normal);
-      // something wrong with recursiveness here - multiple images
-    }
-    else {
-      target = hit + info.normal + randomOnUnitSphere(hit.xy);
-    }
 
-    vec3 hitColor = mat.color  * max(0.0, dot(r.dir, info.normal));
+    material mat = materials[info.index];
+    sumColor += kColor * mat.emissive;
+    kColor *= mat.diffuse;
+    vec3 lambert = info.normal + randomOnUnitSphere(hit.xy - hit.yz);
+    vec3 spec = reflect(r.dir, info.normal);
+    vec3 target = hit + mix(lambert, spec, mat.specular);
+
     if (i > 0) {
-      r.origin = hit;
+      
       r.dir = normalize(target - hit);
+      r.origin = hit + r.dir * EPSILON;
     }
-    accumColor += hitColor / 8.0;
   }
-  return accumColor;
+  return sumColor;
 }
 
 void main(void) {
@@ -202,7 +205,7 @@ void main(void) {
   ray r;
   r.origin = camPos;
   r.dir = mix(mix(ray00.xyz, ray01.xyz, juv.y), mix(ray10.xyz, ray11.xyz, juv.y), juv.x);
-  color = mix(texture(tex, uv).rgb, trace(r), 1.0 / (count + 1.0));
+  color = mix(texture(tex, uv).rgb, EXPOSURE * trace(r), 1.0 / (count + 1.0));
 
   imageStore(framebuffer, pix, vec4(color, 1.0));
 }
