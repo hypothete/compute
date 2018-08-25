@@ -8,3 +8,5 @@ This is just a test for me to learn compute shaders. Here's what I'm working off
 * https://kylewbanks.com/blog/tutorial-opengl-with-golang-part-1-hello-opengl
 * https://www.shadertoy.com/view/MdfGW8
 * Peter Shirley's Ray Tracing in One Weekend
+
+![A render from the ray tracer](screenshot.png)
