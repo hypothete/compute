@@ -6,7 +6,7 @@ layout (local_size_x = 16, local_size_y = 8) in;
 #define NUM_BOXES 2
 #define NUM_SPHERES 3
 #define EPSILON 0.0001
-#define EXPOSURE 16.0
+#define EXPOSURE 8.0
 
 // The camera specification
 uniform vec3 camPos;
@@ -55,16 +55,16 @@ const box boxes[] = {
 
 const sphere spheres[] = {
   {vec3(0.0, 3.0, 0.0), 1.0, 2}, // light
-  {vec3(0.0, 1.0, -1.0), 0.25, 3}, // pink
+  {vec3(-0.5, 0.5, 0.0), 0.25, 3}, // pink
   {vec3(1.25, 0.0, -0.25), 0.75, 4} // yellow
 };
 
 const material materials[] = {
   { vec3(0.7, 0.7, 0.9), 0.0, vec3(0.0, 0.0, 0.0) },
-  { vec3(0.0, 1.0, 0.0), 0.0, vec3(0.0, 0.0, 0.0) },
+  { vec3(0.1, 0.4, 0.1), 0.0, vec3(0.0, 0.0, 0.0) },
   { vec3(1.0, 0.9, 0.8), 0.0, vec3(1.0, 0.9, 0.8) },
-  { vec3(1.0, 0.0, 1.0), 0.0, vec3(0.0, 0.0, 0.0) },
-  { vec3(1.0, 1.0, 0.2), 1.0, vec3(0.0, 0.0, 0.0) }
+  { vec3(1.0, 0.5, 0.8), 0.0, vec3(0.0, 0.0, 0.0) },
+  { vec3(1.0, 0.9, 0.5), 1.0, vec3(0.0, 0.0, 0.0) }
 };
 
 float rand(vec2 co) {
@@ -197,7 +197,6 @@ void main(void) {
     return;
   }
 
-  vec3 color;
   vec2 jitter = vec2(rand(vec2(pix.x, pix.y + count)), rand(vec2(count - pix.y, pix.x)));
   vec2 juv = (vec2(pix) + jitter) / vec2(size.x, size.y);
   vec2 uv = vec2(pix) / vec2(size.x, size.y);
@@ -205,7 +204,10 @@ void main(void) {
   ray r;
   r.origin = camPos;
   r.dir = mix(mix(ray00.xyz, ray01.xyz, juv.y), mix(ray10.xyz, ray11.xyz, juv.y), juv.x);
-  color = mix(texture(tex, uv).rgb, EXPOSURE * trace(r), 1.0 / (count + 1.0));
+
+  vec3 newColor = trace(r);
+  newColor = clamp(vec3(0.0), vec3(1.0), pow(newColor, vec3(1.0 / 2.2)));
+  vec3 color = mix(texture(tex, uv).rgb, EXPOSURE * newColor, 1.0 / (count + 1.0));
 
   imageStore(framebuffer, pix, vec4(color, 1.0));
 }

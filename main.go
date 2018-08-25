@@ -1,8 +1,13 @@
 package main
 
 import (
+	"image"
+	"image/png"
 	"log"
+	"os"
 	"runtime"
+
+	"github.com/disintegration/imaging"
 
 	"github.com/go-gl/gl/v4.3-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
@@ -134,6 +139,18 @@ func makeOutputTexture(renderedTexture uint32) uint32 {
 	return renderedTexture
 }
 
+func takeScreenshot() {
+	pixels := image.NewRGBA(image.Rect(0, 0, windowWidth, windowHeight))
+	gl.ReadPixels(0, 0, windowWidth, windowHeight, gl.RGBA, gl.UNSIGNED_BYTE, gl.Ptr(pixels.Pix))
+	new_image := imaging.FlipV(pixels)
+	output, err := os.Create("screenshot.png")
+	if err != nil {
+		log.Fatal(err)
+	}
+	png.Encode(output, new_image)
+	output.Close()
+}
+
 func draw(
 	vao *uint32,
 	window *glfw.Window,
@@ -195,6 +212,10 @@ func draw(
 	gl.UseProgram(0)
 
 	window.SwapBuffers()
+
+	if window.GetKey(glfw.KeyF3) == glfw.Press {
+		takeScreenshot()
+	}
 	glfw.PollEvents()
 }
 
@@ -241,7 +262,7 @@ func main() {
 
 	vao := makeVao(quad)
 
-	var count float32 = 0
+	var count float32
 
 	gl.UseProgram(computeProg.ID)
 	camPosUniform := gl.GetUniformLocation(computeProg.ID, gStr("camPos"))
