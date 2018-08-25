@@ -39,6 +39,11 @@ struct ray {
   vec3 dir;
 };
 
+struct material {
+  vec3 color;
+  bool metal;
+};
+
 const box boxes[] = {
   /* The ground */
   {vec3(-5.0, -1.0, -5.0), vec3(5.0, -0.75, 5.0), 0},
@@ -52,13 +57,13 @@ const sphere spheres[] = {
   {vec3(1.25, 0.0, -0.25), 0.75, 4} // yellow
 };
 
-const vec3 colors[] = {
-  vec3(0.7, 0.7, 0.7),
-  vec3(0.0, 1.0, 0.0),
-  vec3(0.0, 0.0, 1.0),
-  vec3(1.0, 0.0, 1.0),
-  vec3(1.0, 1.0, 0.0),
-  vec3(0.0, 1.0, 1.0)
+const material materials[] = {
+  { vec3(0.7, 0.7, 0.7), false },
+  { vec3(0.0, 1.0, 0.0), false },
+  { vec3(0.0, 0.0, 1.0), false },
+  { vec3(1.0, 0.0, 1.0), true },
+  { vec3(1.0, 1.0, 0.0), false },
+  { vec3(0.0, 1.0, 1.0), false }
 };
 
 float rand(vec2 co) {
@@ -162,9 +167,17 @@ vec3 trace(ray r) {
       break;
     }
     vec3 hit = r.origin + r.dir*info.lambda.x;
-    vec3 target = hit + info.normal + randomOnUnitSphere(hit.xy);
-    // vec3 target = hit + reflect(r.dir, info.normal);
-    vec3 hitColor = colors[info.index]  * max(0.0, dot(r.dir, info.normal));
+    vec3 target;
+    material mat = materials[info.index];
+    if (mat.metal) {
+      target = hit + reflect(r.dir, info.normal);
+      // something wrong with recursiveness here - multiple images
+    }
+    else {
+      target = hit + info.normal + randomOnUnitSphere(hit.xy);
+    }
+
+    vec3 hitColor = mat.color  * max(0.0, dot(r.dir, info.normal));
     if (i > 0) {
       r.origin = hit;
       r.dir = normalize(target - hit);
