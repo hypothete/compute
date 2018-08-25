@@ -5,6 +5,7 @@ layout (local_size_x = 16, local_size_y = 8) in;
 #define MAX_SCENE_BOUNDS 100.0
 #define NUM_BOXES 2
 #define NUM_SPHERES 3
+#define NUM_TRIANGLES 1
 #define EPSILON 0.0001
 #define EXPOSURE 8.0
 
@@ -18,8 +19,7 @@ uniform float count;
 uniform sampler2D tex;
 
 struct box {
-  vec3 min;
-  vec3 max;
+  vec3 min, max;
   int material;
 };
 
@@ -64,12 +64,17 @@ const sphere spheres[] = {
   {vec3(1.25, 0.0, -0.25), 0.75, 4} // yellow
 };
 
+const triangle triangles[] = {
+  {vec3(2.5,-0.5,-1.5), vec3(0.0, 2.5, -2.0), vec3(-2.5, -0.5, -1.5), 5}
+};
+
 const material materials[] = {
   { vec3(0.7, 0.7, 0.9), 0.0, vec3(0.0, 0.0, 0.0) },
   { vec3(0.1, 0.4, 0.1), 0.0, vec3(0.0, 0.0, 0.0) },
   { vec3(1.0, 0.9, 0.8), 0.0, vec3(1.0, 0.9, 0.8) },
   { vec3(1.0, 0.5, 0.8), 0.0, vec3(0.0, 0.0, 0.0) },
-  { vec3(1.0, 0.9, 0.5), 1.0, vec3(0.0, 0.0, 0.0) }
+  { vec3(1.0, 0.9, 0.3), 1.0, vec3(0.0, 0.0, 0.0) },
+  { vec3(0.5, 0.9, 1.0), 0.9, vec3(0.0, 0.0, 0.0) }
 };
 
 float rand(vec2 co) {
@@ -164,6 +169,49 @@ bool intersectSpheres(ray r, out hitinfo info) {
   return found;
 }
 
+float intersectTriangle(ray r, const triangle t) {
+  vec3 edge1 = t.b - t.a;
+  vec3 edge2 = t.c - t.a;
+  vec3 h = cross(r.dir, edge2);
+  float a = dot(edge1, h);
+  if (a > -EPSILON && a < EPSILON) {
+    return -1.0;
+  }
+  float f = 1.0 / a;
+  vec3 s = r.origin - t.a;
+  float u = f * dot(s, h);
+  if (u < 0.0 || u > 1.0) {
+    return -1.0;
+  }
+  vec3 q = cross(s, edge1);
+  float v = f * dot(r.dir, q);
+  if (v < 0.0 || u + v > 1.0) {
+    return -1.0;
+  }
+  float t1 = f * dot(edge2, q);
+  if (t1 > EPSILON) {
+    return t1;
+  }
+  return -1.0;
+}
+
+bool intersectTriangles(ray r, out hitinfo info) {
+  bool found = false;
+  float smallest = info.lambda.x;
+  for (int i = 0; i < NUM_TRIANGLES; i++) {
+    float x1 = intersectTriangle(r, triangles[i]);
+    if (x1 > 0.0 && x1 < smallest) {
+      found = true;
+      smallest = x1; // sort for depth
+      info.lambda = vec2(x1, MAX_SCENE_BOUNDS);
+      info.index = triangles[i].material;
+      vec3 pt1 = pointAt(r, x1);
+      info.normal = normalize(cross(triangles[i].b - triangles[i].a, triangles[i].c - triangles[i].a));
+    }
+  }
+  return found;
+}
+
 vec3 trace(ray r) {
   
   vec3 sumColor = vec3(0.0);
@@ -174,6 +222,7 @@ vec3 trace(ray r) {
     info.lambda = vec2(MAX_SCENE_BOUNDS);
     intersectBoxes(r, info);
     intersectSpheres(r, info);
+    intersectTriangles(r, info);
     if (info.lambda.x >= MAX_SCENE_BOUNDS) {
       break;
     }
